@@ -1,0 +1,33 @@
+{
+  "name": "agentic-automated-cold-mailer",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kartikmawani/agentic-automated-cold-mailer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kartikmawani/agentic-automated-cold-mailer/issues"
+  },
+  "homepage": "https://github.com/kartikmawani/agentic-automated-cold-mailer#readme",
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "prisma": "^7.8.0",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "dotenv": "^17.4.2",
+    "pg": "^8.22.0"
+  }
+}

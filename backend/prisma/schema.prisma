@@ -4,10 +4,93 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
+  
+}
+
+model User{
+  id String @id @default(uuid())
+  email String @unique
+  name String
+  password String
+  campaign Campaign[]
+  githubId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+}
+model Company{
+  id String @id @default(uuid())
+  name String
+  job   Job[]
+  domain String @unique
+   website String?
+  contacts Contact[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+}
+model Job{
+   id String @id   @default(uuid())
+   title String
+   Description String
+   companyId String
+   url String?
+   company   Company @relation(fields:[companyId],references:[id],onDelete:Cascade)
+   emailLog EmailLog[]
+   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+}
+model Contact{
+  id String @id @default(uuid())
+  name String
+  email String? @unique
+  title String
+  linkedInurl String?
+   companyId   String
+  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  emailLogs   EmailLog[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+model Campaign{
+   id        String     @id @default(uuid())
+  name      String
+  status    String     @default("ACTIVE")  
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailLogs EmailLog[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+enum EmailStatus{
+  Pending
+  Sent
+  Opened
+  Replied
+  Bounced
+}
+
+model EmailLog{
+     
+  id          String      @id @default(uuid())
+  campaignId  String
+  campaign    Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contactId   String
+  contact     Contact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  jobId       String?
+  job         Job?        @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  subject     String
+  body        String
+  status      EmailStatus @default(Pending)
+  scheduledAt DateTime     
+  sentAt      DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }

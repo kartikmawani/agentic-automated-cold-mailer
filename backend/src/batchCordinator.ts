@@ -1,6 +1,6 @@
 // src/batchCoordinator.ts
 import pLimit from "p-limit";
-import { PrismaClient, Lead } from "./generated/prisma/index.js"; // Target your custom generation path
+import { PrismaClient, Lead } from  "..//generated/prisma/index.js"; // Target your custom generation path
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import betterSqlite3 from "better-sqlite3";
 import { MCPOutreachOrchestrator } from "./client.js";
@@ -11,7 +11,7 @@ import path from "node:path";
 // ==========================================
 const databaseStoragePath = path.resolve("prisma/dev.db");
 const sqliteNativeDriver = new betterSqlite3(databaseStoragePath);
-const databaseAdapter = new PrismaBetterSqlite3(sqliteNativeDriver);
+const databaseAdapter = new PrismaBetterSqlite3({url:"file:databaseStoragePath"});
 const prisma = new PrismaClient({ adapter: databaseAdapter });
 
 // Configure an explicit global tracking interface for metrics reporting
@@ -106,7 +106,7 @@ export async function orchestrateParallelBatch(
   const safetyCeiling = pLimit(3); // Enforces a hard ceiling of 3 concurrent multi-turn LLM streams
 
   // STEP 3: Map the database records into an execution array of throttled promise slots
-  const workerPromises = actionableLeads.map((lead) => {
+  const workerPromises = actionableLeads.map((lead: any) => {
     // Captures each task context but halts execution until a seat opens up in the active queue pool
     return safetyCeiling(() => processSingleLead(lead, orchestrator));
   });
@@ -115,7 +115,7 @@ export async function orchestrateParallelBatch(
   const executionResults = await Promise.all(workerPromises);
 
   // STEP 5: Aggregate the run analytics before unmounting the process
-  const successes = executionResults.filter((result) => result === true).length;
+  const successes = executionResults.filter((result: boolean) => result === true).length;
   const failures = executionResults.length - successes;
 
   return {

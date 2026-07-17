@@ -5,7 +5,7 @@ export const config = {
     resendAPIKey: process.env.RESEND_API_KEY,
     workSpacePath:"will be set in the future"
 }
-function validateEnviornmentVariables(){
+export function validateEnviornmentVariables(){
     if(!config.AnthropicAPIKey){
         throw new Error("ANTHROPIC_API_KEY is not set");
     }

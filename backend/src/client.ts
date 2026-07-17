@@ -26,7 +26,7 @@ const MAX_TOOL_TURNS = 10;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-class MCPOutreachOrchestrator {
+export class MCPOutreachOrchestrator {
   private mcp: Client;
   private _anthropic: Anthropic | null = null;
   private transport: StdioClientTransport | null = null;

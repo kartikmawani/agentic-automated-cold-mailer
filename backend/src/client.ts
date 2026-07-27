@@ -7,24 +7,20 @@ import {
   ToolResultBlockParam,
   ToolUseBlock,
 } from "@anthropic-ai/sdk/resources/messages/messages.js";
-
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
-import fs from "node:fs";
+// Directly maps to your custom schema generator output block
+import { PrismaClient, Lead } from "./generated/prisma/index.js";
+
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
+import { generateStrictDraft } from "./llmGuarding.js";
 
-// Initialize environment tracking configurations
 dotenv.config();
-
+const prisma = new PrismaClient();
 const ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022";
 const MAX_TOOL_TURNS = 10;
-
-// Reconstruct __dirname for native ES Module compliance
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 export class MCPOutreachOrchestrator {
   private mcp: Client;
@@ -33,15 +29,13 @@ export class MCPOutreachOrchestrator {
   private tools: Tool[] = [];
 
   constructor() {
-    // Initialize the decoupled MCP client container
     this.mcp = new Client(
       { name: "cold-mailer-orchestrator", version: "1.0.0" },
       { capabilities: {} }
     );
   }
 
-  private get anthropic(): Anthropic {
-    // Lazy-initialize the Anthropic engine instance when required
+  public get anthropicInstance(): Anthropic {
     return (this._anthropic ??= new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
     }));
@@ -49,7 +43,6 @@ export class MCPOutreachOrchestrator {
 
   /**
    * Spawns the background server process over native Standard I/O streams
-   * and dynamically extracts available capabilities/tools.
    */
   async connectToServer(serverScriptPath: string) {
     try {
@@ -60,7 +53,6 @@ export class MCPOutreachOrchestrator {
         throw new Error("Server initialization target must be a valid .ts, .js, or .py file.");
       }
 
-      // Detect environmental runtimes to remain platform-agnostic
       const command = isPy
         ? process.platform === "win32"
           ? "python"
@@ -74,7 +66,6 @@ export class MCPOutreachOrchestrator {
       this.transport = new StdioClientTransport({ command, args });
       await this.mcp.connect(this.transport);
 
-      // Runtime Tool Discovery Block
       const toolsResult = await this.mcp.listTools();
       this.tools = toolsResult.tools.map((tool) => ({
         name: tool.name,
@@ -82,10 +73,7 @@ export class MCPOutreachOrchestrator {
         input_schema: tool.inputSchema,
       }));
 
-      console.error(
-        "🔄 Connected to MCP Server. Registered Tools:",
-        this.tools.map(({ name }) => name)
-      );
+      console.error("🔄 Connected to MCP Server. Registered Tools:", this.tools.map(({ name }) => name));
     } catch (e) {
       console.error("❌ Failed to bind to target MCP infrastructure server: ", e);
       throw e;
@@ -93,27 +81,16 @@ export class MCPOutreachOrchestrator {
   }
 
   /**
-   * Executes a multi-turn tool calling reasoning loop with Claude.
-   * Tracks context state and tool responses natively in memory.
+   * STAGE 1: Executes multi-turn tool calling verification sweeps inside the workspace
    */
-  async processQuery(query: string): Promise<string> {
-    const systemInstruction = `You are a world-class, low-level systems and full-stack engineer operating as an autonomous technical outreach engine.
-Your goal is to write a highly targeted, punchy cold email pitch to a startup founder.
-CRITICAL CONSTRAINTS:
-1. Speak engineer-to-engineer. Focus directly on their runtime issues or architecture constraints.
-2. Never use generic corporate marketing fluff or AI filler blocks (e.g., "I hope this email finds you well", "As an enthusiastic student").
-3. You must inspect the user's local workspace repositories using your available tools to find exact architectural or code evidence that aligns with their stack.
-4. Output ONLY the clear, final email copy once your code verification is complete.`;
+  async gatherWorkspaceIntelligence(query: string): Promise<string> {
+    const systemInstruction = `You are a world-class systems and full-stack engineer operating as an autonomous workspace analytics module.
+Your goal is to inspect the user's local repositories using available tools to find exact architectural or code evidence matching their request.
+Provide a clear, concrete breakdown of the engineering design choices, libraries, or patterns you discover.`;
 
-    const messages: MessageParam[] = [
-      {
-        role: "user",
-        content: query,
-      },
-    ];
+    const messages: MessageParam[] = [{ role: "user", content: query }];
 
-    // Frame Turn 0
-    let response = await this.anthropic.messages.create({
+    let response = await this.anthropicInstance.messages.create({
       model: ANTHROPIC_MODEL,
       max_tokens: 1500,
       system: systemInstruction,
@@ -121,17 +98,9 @@ CRITICAL CONSTRAINTS:
       tools: this.tools,
     });
 
-    // Handle deep multi-turn agent execution blocks
     for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
-      const toolUses: ToolUseBlock[] = [];
+      const toolUses = response.content.filter((block): block is ToolUseBlock => block.type === "tool_use");
 
-      for (const block of response.content) {
-        if (block.type === "tool_use") {
-          toolUses.push(block);
-        }
-      }
-
-      // If the model decides it has gathered sufficient local context, return final text
       if (toolUses.length === 0) {
         const textBlock = response.content.find((b) => b.type === "text");
         return textBlock && textBlock.type === "text" ? textBlock.text : "";
@@ -143,7 +112,6 @@ CRITICAL CONSTRAINTS:
         const toolArgs = toolUse.input as { [x: string]: unknown } | undefined;
         console.error(`⚙️ [Agent Call] Executing server tool: ${toolUse.name}`);
 
-        // Invoke the local filesystem layer tool through the protocol bridge
         const result = await this.mcp.callTool({
           name: toolUse.name,
           arguments: toolArgs,
@@ -156,15 +124,13 @@ CRITICAL CONSTRAINTS:
         });
       }
 
-      // Feed conversational history and execution results back into the context matrix
       messages.push({
         role: "assistant",
         content: response.content as unknown as ContentBlockParam[],
       });
       messages.push({ role: "user", content: toolResults });
 
-      // Rerun evaluation model frame
-      response = await this.anthropic.messages.create({
+      response = await this.anthropicInstance.messages.create({
         model: ANTHROPIC_MODEL,
         max_tokens: 1500,
         system: systemInstruction,
@@ -177,77 +143,88 @@ CRITICAL CONSTRAINTS:
   }
 
   /**
-   * Loops through target leads array and drives the automated processing sequence.
+   * STAGE 2: Drives the full extraction, guarded design execution, and database persistence
    */
-  async runOutreachPipeline() {
-    const leadsPath = path.resolve(__dirname, "../leads.json");
-    const workspacePath = process.env.WORKSPACE_PATH;
+  async processSingleLead(lead: Lead, workspacePath: string): Promise<boolean> {
+    try {
+      // 1. Advance transaction flag state to isolate runtime operations
+      await prisma.lead.update({
+        where: { id: lead.id },
+        data: { status: "PROCESSING" }
+      });
 
-    if (!workspacePath) {
-      throw new Error("WORKSPACE_PATH must be configured in your .env file.");
-    }
+      // Safe evaluation fallback formatting for nullable database attributes
+      const targetsTechStack = lead.techStack ?? "General Software Infrastructure";
+      const targetedPainPoint = lead.engineeringPainPoint ?? "Scaling application features under traffic load";
+      const recipientName = lead.founderName ?? "Founder";
 
-    if (!fs.existsSync(leadsPath)) {
-      throw new Error(`Target verification database file missing at: ${leadsPath}`);
-    }
+      console.error(`🔍 [Stage 1] Scanning active codebase for points mapping to: ${lead.companyName}`);
+      
+      const engineeringQuery = `Scan my workspace root at "${workspacePath}". Find structural configurations, dependencies, implementation patterns, or custom system designs relevant to a target company stack running: ${targetsTechStack}.`;
+      
+      // Execute the decoupled tool extraction sequence
+      const workspaceContextInsight = await this.gatherWorkspaceIntelligence(engineeringQuery);
 
-    const leads = JSON.parse(fs.readFileSync(leadsPath, "utf-8"));
-    console.error(`📈 Pipeline Engaged: Processing ${leads.length} leads autonomously...\n`);
+      console.error(`🛡️ [Stage 2] Committing prompt parameters down the forced tool guardrail...`);
 
-    for (const lead of leads) {
-      console.error(`\n------------------------------------------------------------`);
-      console.error(`🎯 Targeting: ${lead.companyName} | Founder: ${lead.founderName}`);
-      console.error(`------------------------------------------------------------`);
+      const executionPrompt = `
+You are a technical outreach engine writing a highly personalized cold email pitch.
+Recipient: ${recipientName}, operating at ${lead.companyName}
+Target Stack Matrix: ${targetsTechStack}
+Scaling Friction Target: "${targetedPainPoint}"
 
-      const engineeringQuery = `Draft an email to ${lead.founderName}, the founder of ${lead.companyName}.
-Their runtime tech stack: ${lead.techStack.join(", ")}.
-Their current engineering scaling pain point: "${lead.engineeringPainPoint}".
-Analyze my local workspace root at "${workspacePath}" to discover a matching repository context to anchor the pitch.`;
+Here is the exact architectural and framework proof harvested from my active local repositories:
+${workspaceContextInsight}
 
-      try {
-        const finalDraft = await this.processQuery(engineeringQuery);
-        
-        // Print the final result directly to stdout for clean capture redirects
-        console.log(`\n=== FINAL EMAIL DRAFT FOR ${lead.companyName.toUpperCase()} ===`);
-        console.log(finalDraft);
-        console.log(`================================================================\n`);
-      } catch (err: any) {
-        console.error(`❌ Automation processing failed for ${lead.companyName}: ${err.message}`);
-      }
+Construct the cold outreach layout using your available formatting tools.
+CRITICAL DIRECTIONS:
+1. Speak engineer-to-engineer. Focus directly on their runtime context or architectural constraints.
+2. Never introduce generic corporate marketing fluff or boilerplate text.
+3. Use the 'save_outreach_draft' tool parameter execution block to output your results.
+      `.trim();
+
+      // Fire payload down the rigid JSON type contract
+      const structuredResult = await generateStrictDraft(this.anthropicInstance, executionPrompt);
+
+      // Concatenate the structural parts clearly since Lead stores drafts inside a single string field
+      const compiledDraft = `Subject: ${structuredResult.subjectLine}\n\n${structuredResult.emailBody}`;
+
+      // 2. Commit completed status parameters straight to the SQLite table
+      await prisma.lead.update({
+        where: { id: lead.id },
+        data: {
+          status: "READY_TO_SEND",
+          finalDraft: compiledDraft,
+          errorMessage: null
+        }
+      });
+
+      console.error(`✅ Execution successful. Committed production email structures for: ${lead.companyName}`);
+      return true;
+
+    } catch (err: any) {
+      console.error(`❌ Automation lifecycle processing broken for ${lead.companyName}: ${err.message}`);
+      
+      // Mark record as broken to prevent database deadlock states
+      await prisma.lead.update({
+        where: { id: lead.id },
+        data: {
+          status: "FAILED",
+          errorMessage: err.message
+        }
+      });
+      
+      return false;
     }
   }
 
+  /**
+   * Closes open standard input/output connection handles
+   */
   async cleanup() {
-    await this.mcp.close();
-    console.error("🛑 Subprocess connections unmounted cleanly.");
-  }
-}
-
-// --- SYSTEM ENTRYPOINT EXECUTION ---
-async function main() {
-  const serverScript = process.argv[2] || "src/server.ts";
-  const orchestrator = new MCPOutreachOrchestrator();
-
-  try {
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.error("❌ CRITICAL: ANTHROPIC_API_KEY is missing from the environment configuration.");
-      process.exit(1);
+    if (this.mcp) {
+      await this.mcp.close();
+      console.error("🛑 Subprocess connections unmounted cleanly.");
     }
-
-    // Connect to background process using runtime parameters
-    await orchestrator.connectToServer(path.resolve(serverScript));
-    
-    // Fire the automatic pipeline loop
-    await orchestrator.runOutreachPipeline();
-
-  } catch (error) {
-    console.error("💥 Critical lifecycle exception encountered during execution execution:", error);
-    await orchestrator.cleanup();
-    process.exit(1);
-  } finally {
-    await orchestrator.cleanup();
-    process.exit(0);
   }
 }
-
-main();

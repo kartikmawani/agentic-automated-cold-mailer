@@ -1,5 +1,4 @@
-import "dotenv" from "dotenv";
-dotenv.config();
+ 
 export const config = {
     AnthropicAPIKey: process.env.ANTHROPIC_API_KEY,
     resendAPIKey: process.env.RESEND_API_KEY,

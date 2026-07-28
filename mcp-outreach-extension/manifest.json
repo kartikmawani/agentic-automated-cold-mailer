@@ -1,0 +1,17 @@
+{
+    "manifest_version": 3,
+    "name": "Outreach Context Extractor",
+    "version": "1.0.0",
+    "description": "Extracts startup data profiles instantly and pushes them to the local processing queue.",
+    "permissions": [
+      "activeTab",
+      "scripting"
+    ],
+    "host_permissions": [
+      "https://*.wellfound.com/*",
+      "https://*.ycombinator.com/*"
+    ],
+    "action": {
+      "default_popup": "popup.html"
+    }
+  }

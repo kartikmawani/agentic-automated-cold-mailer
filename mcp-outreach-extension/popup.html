@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 240px;
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 12px;
+      margin: 0;
+      background-color: #0f172a; /* Slate 900 */
+      color: #f8fafc; /* Slate 50 */
+    }
+    h3 {
+      margin-top: 0;
+      margin-bottom: 12px;
+      font-size: 14px;
+      text-align: center;
+      color: #38bdf8; /* Sky 400 */
+      letter-spacing: 0.5px;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      background-color: #0284c7; /* Sky 600 */
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    button:hover {
+      background-color: #0369a1; /* Sky 700 */
+    }
+    button:disabled {
+      background-color: #334155; /* Slate 700 */
+      color: #94a3b8; /* Slate 400 */
+      cursor: not-allowed;
+    }
+    #status {
+      margin-top: 10px;
+      font-size: 11px;
+      text-align: center;
+      line-height: 1.4;
+      color: #cbd5e1; /* Slate 300 */
+    }
+  </style>
+</head>
+<body>
+  <h3>Outreach Queue Engine</h3>
+  <button id="ingest-btn">🚀 Ingest Profile Data</button>
+  <div id="status">Ready to extract context...</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

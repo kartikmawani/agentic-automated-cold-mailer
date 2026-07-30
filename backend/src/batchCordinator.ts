@@ -1,31 +1,27 @@
 import pLimit from "p-limit";
 import {resend} from "./resendConfig.js"
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-import betterSqlite3 from "better-sqlite3";
-import path from "node:path";
-import fs from "node:fs"
 // 1. FIXED: Explicitly import both the worker function AND its data interface shape
 import { enrichLeadInSingleGo, EnrichmentResult } from "./enrichmentService.js";
-import { generateOutreachEmail } from "./outReachEngine.js"; // Standardized file naming casing
-import {generateDeveloperSummary} from "./profileSummarizer.js"
+import Anthropic from "@anthropic-ai/sdk";
+import { generateStrictDraft } from "./llmGuarding.js";; // Standardized file naming casing
 
 // Import from the generated client (see prisma/schema.prisma generator output).
-import { PrismaClient, Lead } from "./generated/prisma/index.js";
+import { Lead } from "./generated/prisma/index.js";
+import {prisma} from  "./prisma_Initialization.js";
 
 // ==========================================
 // PRISMA 7 ENGINE INTERACTION INITIALIZATION
 // ==========================================
-const databaseStoragePath = path.resolve("prisma/dev.db");
-const sqliteNativeDriver = new betterSqlite3(databaseStoragePath);
-const databaseAdapter = new PrismaBetterSqlite3({ url: `file:${databaseStoragePath}` });
-const prisma = new PrismaClient({ adapter: databaseAdapter });
+ 
 
 interface BatchSummary {
   totalProcessed: number;
   successCount: number;
   failureCount: number;
 }
-
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY || "",
+});
 // ==========================================
 // RUNTIME CONCURRENT EXECUTION CORE
 // ==========================================
@@ -70,20 +66,42 @@ async function processSingleLead(lead: Lead,devProfile:string): Promise<boolean>
     const isValidInbox = enrichment.hunterStatus === 'valid';
 
     if (isHighConfidence && isValidInbox) {
-      // 🟢 SAFE ZONE: Generate cold pitch copy using your Claude writer module
        
+       
+      console.error(`Queue Engine] Generating high-context outreach copy targeting: ${enrichment.founderName}`);
       
-      console.error(`✍️ [Queue Engine] Generating high-context outreach copy targeting: ${enrichment.founderName}`);
-      const outboundEmailCopy = await generateOutreachEmail(
-        enrichment.founderName || "Founder",
-        lead.companyName,
-        enrichment.scrapedContext,
-        devProfile
-    );
+      // A. Hydrate the structured target template for Claude's tool schema
+      const hydratedPrompt = `
+        Write a hyper-personalized email to the founder.
+        
+        STARTUP CONTEXT & PAIN POINTS:
+        Company Name: ${lead.companyName}
+        Founder Name: ${enrichment.founderName || "Founder"}
+        Scraped Context: ${enrichment.scrapedContext}
+        
+        MY PORTFOLIO & TECHNICAL EXPERIENCE BLUEPRINT:
+        ${devProfile}
+        
+        INSTRUCTIONS:
+        - Subject line must be informal and short (under 4 words).
+        - Match their engineering stack perfectly.
+        - Conclude with a low-friction call to action asking for a brief technical synchronization chat.
+      `;
+
+      
+      const draftResult = await generateStrictDraft(anthropic, hydratedPrompt)
+      const outboundEmailCopy = `Subject: ${draftResult.subjectLine}\n\n${draftResult.emailBody}`;
+ 
+      await prisma.lead.update({
+        where: { id: lead.id },
+        data: {
+          techStack: draftResult.detectedTechStack.join(", ") // Saves array tokens cleanly as a readable string
+        }
+      });
       const { data, error } = await resend.emails.send({
         from: process.env.SENDER_EMAIL || 'onboarding@resend.dev',
         to: [enrichment.email], // Target address found via Hunter/Tavily
-        subject: `Engineering query regarding ${lead.companyName}`,
+        subject:draftResult.subjectLine,
         text: outboundEmailCopy, // Plain-text format matches natural, non-templated typing
       });
     
@@ -97,7 +115,7 @@ async function processSingleLead(lead: Lead,devProfile:string): Promise<boolean>
             status: "FAILED_DELIVERY"
           }
         });
-         
+         return false;
       }
     
       // 3. Mark row as safely delivered on successful network response

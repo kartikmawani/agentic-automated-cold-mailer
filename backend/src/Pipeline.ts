@@ -1,9 +1,18 @@
+// src/pipeline.ts
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+// Clean Abstraction Imports (The Workers doing the heavy lifting)
+import { seedLocalDatabase } from "./seedLead.js"; 
 import { generateDeveloperSummary } from "./profileSummarizer.js";
-import { orchestrateParallelBatch } from "./batchCordinator.js";
-import {PrismaClient} from  "./generated/prisma/index.js";
-const prisma=new PrismaClient()
+import { orchestrateParallelBatch } from "./batchCordinator.js"; 
+
+import { prisma } from "./prisma_Initialization.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 /**
  * 1. EXTRACT REPO UTILITY
  * Harvests raw README data, or falls back to entry point source code extraction.
@@ -54,10 +63,16 @@ async function extractRepo(workspacePath: string, projectName: string): Promise<
 
 /**
  * 2. MAIN SYSTEM PIPELINE
- * Combines repository extraction, Claude generation, and parallel batch outreach.
+ * Acts as the structural brain coordinating ingestion, local profiling, 
+ * and delegating execution entirely to the imported batch engine.
  */
 export async function runFullOutreachPipeline(): Promise<void> {
   try {
+    // =========================================================
+    // PHASE 0: DATABASE SEEDING
+    // =========================================================
+    await seedLocalDatabase();
+
     // Retrieve environment settings populated by the configuration wizard
     const workspacePath = process.env.WORKSPACE_PATH || "";
     const rawFolders = process.env.PROJECT_FOLDERS || "";
@@ -67,6 +82,9 @@ export async function runFullOutreachPipeline(): Promise<void> {
       throw new Error("Missing active workspace configurations. Run setup wizard first.");
     }
 
+    // =========================================================
+    // PHASE 1: "WHO YOU ARE" (Global Capabilities Profiling)
+    // =========================================================
     console.log("⚡ Starting Step 1: Extracting raw repository insights...");
     let combinedWorkspaceContext = "";
 
@@ -77,24 +95,30 @@ export async function runFullOutreachPipeline(): Promise<void> {
 
     console.log("⚡ Starting Step 2: Compiling technical capability profile via Claude...");
     const devProfile = await generateDeveloperSummary({
-      apiKey: process.env.ANTHROPIC_API_KEY || "",
+      apiKey: process.env.GROQ_API_KEY || "",
       rawReadmeContent: combinedWorkspaceContext
     });
 
     console.log("✨ Finalized Developer Capabilities Matrix:\n", devProfile);
     await prisma.user.upsert({
-        where: { id: "default_user" }, // Uses a constant ID since there is only one user profile running locally
-        update: {
-          capabilitiesSummary: devProfile,
-          updatedAt: new Date()
-        },
-        create: {
-          id: "default_user",
-          capabilitiesSummary: devProfile
-        }
-      });
+      where: { id: "default_user" }, 
+      update: {
+        capabilitiesSummary: devProfile,
+        updatedAt: new Date()
+      },
+      create: {
+        id: "default_user",
+        capabilitiesSummary: devProfile
+      }
+    });
+
+    // =========================================================
+    // PHASE 2: "WHO THE LEADS ARE" (Delegated to Batch Coordinator)
+    // =========================================================
     console.log("⚡ Starting Step 3: Triggering concurrent lead generation engines...");
-    // Pass the workspace paths along with the freshly minted profile to the batch coordinator
+    
+    // The pipeline doesn't care HOW things are processed here. 
+    // It simply passes the devProfile and lets the coordinator handle pLimit, Tavily, Hunter, and Resend.
     const summary = await orchestrateParallelBatch(devProfile);
 
     console.log(`\n🎉 Pipeline execution completed!
@@ -105,5 +129,16 @@ export async function runFullOutreachPipeline(): Promise<void> {
   } catch (error: any) {
     console.error("💥 Critical breakdown inside the core outreach pipeline loop:", error.message);
     throw error;
+  } finally {
+    await prisma.$disconnect();
+    console.log("🛑 Global database systems closed smoothly.");
   }
+}
+
+// Self-executing conditional hook to run pipeline directly via terminal command
+if (import.meta.url === `file://${process.argv[1]}`) {
+  runFullOutreachPipeline().catch((err) => {
+    console.error("❌ Fatal unhandled lifecycle breakdown executed top-level closure:", err);
+    process.exit(1);
+  });
 }

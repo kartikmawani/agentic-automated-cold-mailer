@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
 // ==========================================
 // 1. THE STRICT OUTPUT TYPE CONTRACT
@@ -10,78 +10,60 @@ export interface SerializedOutreachDraft {
 }
 
 // ==========================================
-// 2. THE ANTHROPIC TOOL SCHEMA DEFINITION
-// ==========================================
-export const OUTREACH_TOOL_SCHEMA: Anthropic.Tool = {
-  name: "save_outreach_draft",
-  description: "Structures the compiled engineering analysis and email draft parameters cleanly.",
-  input_schema: {
-    type: "object",
-    properties: {
-      subjectLine: { 
-        type: "string", 
-        description: "An informal, short subject line under 4 words." 
-      },
-      emailBody: { 
-        type: "string", 
-        description: "The complete markdown formatted body text of the cold outreach email." 
-      },
-      detectedTechStack: {
-        type: "array",
-        items: { type: "string" },
-        description: "Array of framework tokens located inside their open scaling pain point descriptions."
-      }
-    },
-    required: ["subjectLine", "emailBody", "detectedTechStack"] 
-  }
-};
-
-// ==========================================
-// 3. THE GUARDRAIL EXECUTION ENGINE
+// 2. THE GUARDRAIL EXECUTION ENGINE (GROQ)
 // ==========================================
 /**
- * Executes a restricted tool invocation query against the Anthropic API layer.
- * Enforces a rigid JSON output format, eliminating conversational filler text.
+ * Executes a guarded query against Groq using native JSON mode.
+ * Enforces rigid JSON output, eliminating conversational filler text.
  */
 export async function generateStrictDraft(
-  anthropicClient: Anthropic,
+  clientOrKey: any, // Accepts an OpenAI/Groq client instance or fallback API key
   hydratedPrompt: string
 ): Promise<SerializedOutreachDraft> {
 
+  // Reuse passed client or initialize a new Groq client
+  const client = clientOrKey instanceof OpenAI
+    ? clientOrKey
+    : new OpenAI({
+        apiKey: process.env.GROQ_API_KEY ||"",
+        baseURL: "https://api.groq.com/openai/v1"
+      });
+
   // ==========================================
-  // STEP 1: THE FORCED TOOL CHOICE CALL
+  // STEP 1: FORCED JSON COMPLETION CALL
   // ==========================================
-  // FIXED: Using the passed client instance directly, injecting tools, and utilizing hydratedPrompt
-  const response = await anthropicClient.messages.create({
-    model: "claude-3-5-sonnet-20241022", 
-    max_tokens: 1500,
-    tools: [OUTREACH_TOOL_SCHEMA], 
-    tool_choice: { type: "tool", name: "save_outreach_draft" },
-    messages: [{ role: "user", content: hydratedPrompt }]
+  const response = await client.chat.completions.create({
+    model: "llama-3.3-70b-versatile",
+    temperature: 0.2,
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content: `You are a cold outreach generator. Respond ONLY with a valid JSON object matching this schema strictly:
+{
+  "subjectLine": "An informal, short subject line under 4 words.",
+  "emailBody": "The complete markdown formatted body text of the cold outreach email.",
+  "detectedTechStack": ["Array", "of", "framework", "tokens"]
+}`
+      },
+      { role: "user", content: hydratedPrompt }
+    ]
   });
 
   // ==========================================
-  // STEP 2: THE TYPE GUARD CHECK
+  // STEP 2: DATA EXTRACTION & VALIDATION
   // ==========================================
-  let extractedInput: any = null;
+  const rawContent = response.choices[0]?.message?.content;
 
-  for (const block of response.content) {
-    if (block.type === "tool_use" && block.name === "save_outreach_draft") {
-      extractedInput = block.input;
-      break;
-    }
+  if (!rawContent) {
+    throw new Error("❌ [Guardrail Failure] Groq completed execution without returning content.");
   }
 
-  // ==========================================
-  // STEP 3: DATA EXTRACTION & VALIDATION
-  // ==========================================
-  if (!extractedInput) {
-    throw new Error("❌ [Guardrail Failure] Claude completed execution without invoking the structured output tool.");
-  }
-  
+  const parsedInput = JSON.parse(rawContent);
+
   return {
-    subjectLine: extractedInput.subjectLine,
-    emailBody: extractedInput.emailBody,
-    detectedTechStack: extractedInput.detectedTechStack
+    subjectLine: parsedInput.subjectLine,
+    emailBody: parsedInput.emailBody,
+    detectedTechStack: parsedInput.detectedTechStack || []
   };
 }

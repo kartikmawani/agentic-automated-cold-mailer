@@ -1,8 +1,8 @@
 import pLimit from "p-limit";
-import {resend} from "./resendConfig.js"
+import OpenAI from "openai";
+import { transporter } from  "./transportConfig.js";
 // 1. FIXED: Explicitly import both the worker function AND its data interface shape
 import { enrichLeadInSingleGo, EnrichmentResult } from "./enrichmentService.js";
-import Anthropic from "@anthropic-ai/sdk";
 import { generateStrictDraft } from "./llmGuarding.js";; // Standardized file naming casing
 
 // Import from the generated client (see prisma/schema.prisma generator output).
@@ -19,8 +19,9 @@ interface BatchSummary {
   successCount: number;
   failureCount: number;
 }
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || "",
+const groqClient = new OpenAI({
+  apiKey: process.env.GROQ_API_KEY || "",
+  baseURL: "https://api.groq.com/openai/v1"
 });
 // ==========================================
 // RUNTIME CONCURRENT EXECUTION CORE
@@ -49,7 +50,7 @@ async function processSingleLead(lead: Lead,devProfile:string): Promise<boolean>
 
     // Defensive Check: If enrichment fails or email data can't be safely resolved
     if (!enrichment || !enrichment.email) {
-      console.error(`⚠️ [Queue Engine] High-confidence email missing for ${lead.companyName}. Shifting to review queue.`);
+      console.error(` [Queue Engine] High-confidence email missing for ${lead.companyName}. Shifting to review queue.`);
       await prisma.lead.update({
         where: { id: lead.id },
         data: { 
@@ -89,64 +90,36 @@ async function processSingleLead(lead: Lead,devProfile:string): Promise<boolean>
       `;
 
       
-      const draftResult = await generateStrictDraft(anthropic, hydratedPrompt)
+      const draftResult = await generateStrictDraft(groqClient, hydratedPrompt);
       const outboundEmailCopy = `Subject: ${draftResult.subjectLine}\n\n${draftResult.emailBody}`;
  
+      const info = await transporter.sendMail({
+        from: process.env.SENDER_EMAIL,
+        to: enrichment.email,
+        subject: draftResult.subjectLine,
+        text: outboundEmailCopy,
+      });
+
+      // D. Mark row as safely delivered and record all metadata in SQLite
       await prisma.lead.update({
         where: { id: lead.id },
         data: {
-          techStack: draftResult.detectedTechStack.join(", ") // Saves array tokens cleanly as a readable string
-        }
-      });
-      const { data, error } = await resend.emails.send({
-        from: process.env.SENDER_EMAIL || 'onboarding@resend.dev',
-        to: [enrichment.email], // Target address found via Hunter/Tavily
-        subject:draftResult.subjectLine,
-        text: outboundEmailCopy, // Plain-text format matches natural, non-templated typing
-      });
-    
-      if (error) {
-        console.error(`Transmission failure for ${lead.companyName}:`, error.message);
-        
-        await prisma.lead.update({
-          where: { id: lead.id },
-          data: {
-            finalDraft: outboundEmailCopy,
-            status: "FAILED_DELIVERY"
-          }
-        });
-         return false;
-      }
-    
-      // 3. Mark row as safely delivered on successful network response
-      await prisma.lead.update({
-        where: { id: lead.id },
-        data: {
+          founderName: enrichment.founderName,
+          domain: enrichment.domain,
+          email: enrichment.email,
+          techStack: draftResult.detectedTechStack.join(", "),
           finalDraft: outboundEmailCopy,
           status: "SENT",
-          //enrichedAt: new Date()
+          enrichedAt: new Date()
         }
       });
-    
-      console.log(`Success! Delivery receipt ID registered: ${data?.id}`);
-    
-      // await prisma.lead.update({
-      //   where: { id: lead.id },
-      //   data: {
-      //     founderName: enrichment.founderName,
-      //     domain: enrichment.domain,
-      //     email: enrichment.email,
-      //     techStack: enrichment.explicitPainPoint, // Stores pain points natively
-      //     finalDraft: outboundEmailCopy,
-      //     status: "READY_TO_SEND", // Clear for CLI transmission approval loops
-      //     errorMessage: null
-      //   }
-      // });
+
+      console.log(`Success! Email delivered via Gmail SMTP. Message ID: ${info.messageId}`);
       return true;
     
     } else {
-      // 🟡 RISKY ZONE: Push to manual review instead of generating lower quality drafts automatically
-      console.error(`🟡 [Queue Engine] Lead ${lead.companyName} flagged as risky context (Score: ${enrichment.hunterScore}). Routing to review queue.`);
+      // 🟡 RISKY ZONE: Push to manual review instead of sending automatically
+      console.error(`[Queue Engine] Lead ${lead.companyName} flagged as risky context (Score: ${enrichment.hunterScore}). Routing to review queue.`);
       await prisma.lead.update({
         where: { id: lead.id },
         data: {

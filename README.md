@@ -54,21 +54,25 @@ M --> E
 * **Engineering "Meta-Pitch" Strategy:** To maximize response rates from startup founders and CTOs, outreach emails are written as concise, peer-to-peer engineering demos. They state upfront that the email was dynamically researched and written by an autonomous agent, proving real-world AI engineering capability in the very first sentence.
 
 ## 🛠️ Built With
+## 🎨 Frontend
 
-### 🎨 Frontend & Browser Extension
-* Chrome Extension (Manifest V3)
-* Firefox Addon
-* JavaScript
+![Chrome Extension](https://img.shields.io/badge/Chrome%20Extension-Manifest%20V3-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)
+![Firefox Addon](https://img.shields.io/badge/Firefox-Addon-FF7139?style=for-the-badge&logo=firefoxbrowser&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
 
-### 🧠 Backend & AI Pipeline
-* Node.js & Express.js
-* TypeScript
-* Groq (Llama 3.3 / Llama 3.1)
-* Nodemailer
+## 🧠 Backend & AI
 
-### 💾 Infrastructure, DB & Protocols
-* SQLite & Prisma ORM
-* Model Context Protocol (MCP)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)
+![Express.js](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![Groq](https://img.shields.io/badge/Groq-Llama%203.3%20%2F%203.1-F55036?style=for-the-badge&logo=groq&logoColor=white)
+![Nodemailer](https://img.shields.io/badge/Nodemailer-009688?style=for-the-badge&logo=gmail&logoColor=white)
+
+## 💾 Infrastructure & DB
+
+![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+![Prisma ORM](https://img.shields.io/badge/Prisma-ORM-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
+![Model Context Protocol](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-6C47FF?style=for-the-badge)
 
 ## 🚀 Getting Started
 

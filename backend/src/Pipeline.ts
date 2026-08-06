@@ -68,10 +68,8 @@ async function extractRepo(workspacePath: string, projectName: string): Promise<
  */
 export async function runFullOutreachPipeline(): Promise<void> {
   try {
-    // =========================================================
-    // PHASE 0: DATABASE SEEDING
-    // =========================================================
-    await seedLocalDatabase();
+     
+   // await seedLocalDatabase();
 
     // Retrieve environment settings populated by the configuration wizard
     const workspacePath = process.env.WORKSPACE_PATH || "";

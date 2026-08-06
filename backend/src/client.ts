@@ -1,145 +1,46 @@
 // src/client.ts
-import { Anthropic } from "@anthropic-ai/sdk";
-import {
-  ContentBlockParam,
-  MessageParam,
-  Tool,
-  ToolResultBlockParam,
-  ToolUseBlock,
-} from "@anthropic-ai/sdk/resources/messages/messages.js";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-
-// Directly maps to your custom schema generator output block
-import { PrismaClient, Lead } from "./generated/prisma/index.js";
-
-import path from "node:path";
+import OpenAI from "openai";
+import { Lead } from "./generated/prisma/index.js";
+import { prisma } from "./prisma_Initialization.js";
 import dotenv from "dotenv";
 import { generateStrictDraft } from "./llmGuarding.js";
 
 dotenv.config();
-const prisma = new PrismaClient();
-const ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022";
-const MAX_TOOL_TURNS = 10;
+ 
 
 export class MCPOutreachOrchestrator {
-  private mcp: Client;
-  private _anthropic: Anthropic | null = null;
-  private transport: StdioClientTransport | null = null;
-  private tools: Tool[] = [];
+  private _groq: OpenAI | null = null;
 
-  constructor() {
-    this.mcp = new Client(
-      { name: "cold-mailer-orchestrator", version: "1.0.0" },
-      { capabilities: {} }
-    );
-  }
-
-  public get anthropicInstance(): Anthropic {
-    return (this._anthropic ??= new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
+  public get groqInstance(): OpenAI {
+    return (this._groq ??= new OpenAI({
+      apiKey:process.env.GROQ_API_KEY || "",
+      baseURL: "https://api.groq.com/openai/v1"
     }));
   }
-
   /**
-   * Spawns the background server process over native Standard I/O streams
+   * Bypasses the background server process execution to run in high-speed direct mode
    */
   async connectToServer(serverScriptPath: string) {
-    try {
-      const isJs = serverScriptPath.endsWith(".js") || serverScriptPath.endsWith(".ts");
-      const isPy = serverScriptPath.endsWith(".py");
-
-      if (!isJs && !isPy) {
-        throw new Error("Server initialization target must be a valid .ts, .js, or .py file.");
-      }
-
-      const command = isPy
-        ? process.platform === "win32"
-          ? "python"
-          : "python3"
-        : "npx";
-
-      const args = isPy 
-        ? [serverScriptPath] 
-        : ["tsx", serverScriptPath];
-
-      this.transport = new StdioClientTransport({ command, args });
-      await this.mcp.connect(this.transport);
-
-      const toolsResult = await this.mcp.listTools();
-      this.tools = toolsResult.tools.map((tool) => ({
-        name: tool.name,
-        description: tool.description,
-        input_schema: tool.inputSchema,
-      }));
-
-      console.error("🔄 Connected to MCP Server. Registered Tools:", this.tools.map(({ name }) => name));
-    } catch (e) {
-      console.error("❌ Failed to bind to target MCP infrastructure server: ", e);
-      throw e;
-    }
+    // Structural signature preserved to avoid breaking pipeline.ts invocation workflows
+    console.error("🚀 MCP Server bypass active. Operating in high-speed database profile mode.");
   }
 
   /**
-   * STAGE 1: Executes multi-turn tool calling verification sweeps inside the workspace
+   * STAGE 1: Instantly retrieves high-density capability data from the local database
    */
   async gatherWorkspaceIntelligence(query: string): Promise<string> {
-    const systemInstruction = `You are a world-class systems and full-stack engineer operating as an autonomous workspace analytics module.
-Your goal is to inspect the user's local repositories using available tools to find exact architectural or code evidence matching their request.
-Provide a clear, concrete breakdown of the engineering design choices, libraries, or patterns you discover.`;
-
-    const messages: MessageParam[] = [{ role: "user", content: query }];
-
-    let response = await this.anthropicInstance.messages.create({
-      model: ANTHROPIC_MODEL,
-      max_tokens: 1500,
-      system: systemInstruction,
-      messages,
-      tools: this.tools,
+    console.error("⚡ [Direct Mode] Fetching pre-compiled capability summary from database...");
+    
+    // Fetch the high-density capability blueprint built by profileSummarizer in Phase 1
+    const userProfile = await prisma.user.findUnique({
+      where: { id: "default_user" }
     });
 
-    for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
-      const toolUses = response.content.filter((block): block is ToolUseBlock => block.type === "tool_use");
-
-      if (toolUses.length === 0) {
-        const textBlock = response.content.find((b) => b.type === "text");
-        return textBlock && textBlock.type === "text" ? textBlock.text : "";
-      }
-
-      const toolResults: ToolResultBlockParam[] = [];
-      
-      for (const toolUse of toolUses) {
-        const toolArgs = toolUse.input as { [x: string]: unknown } | undefined;
-        console.error(`⚙️ [Agent Call] Executing server tool: ${toolUse.name}`);
-
-        const result = await this.mcp.callTool({
-          name: toolUse.name,
-          arguments: toolArgs,
-        });
-
-        toolResults.push({
-          type: "tool_result",
-          tool_use_id: toolUse.id,
-          content: result.content as ToolResultBlockParam["content"],
-        });
-      }
-
-      messages.push({
-        role: "assistant",
-        content: response.content as unknown as ContentBlockParam[],
-      });
-      messages.push({ role: "user", content: toolResults });
-
-      response = await this.anthropicInstance.messages.create({
-        model: ANTHROPIC_MODEL,
-        max_tokens: 1500,
-        system: systemInstruction,
-        messages,
-        tools: this.tools,
-      });
+    if (!userProfile || !userProfile.capabilitiesSummary) {
+      throw new Error("Capabilities profile missing from database. Run profile generation first.");
     }
 
-    throw new Error(`Agent loop suspended: Reached maximum tool limit bounds of [${MAX_TOOL_TURNS}] turns.`);
+    return userProfile.capabilitiesSummary;
   }
 
   /**
@@ -162,7 +63,7 @@ Provide a clear, concrete breakdown of the engineering design choices, libraries
       
       const engineeringQuery = `Scan my workspace root at "${workspacePath}". Find structural configurations, dependencies, implementation patterns, or custom system designs relevant to a target company stack running: ${targetsTechStack}.`;
       
-      // Execute the decoupled tool extraction sequence
+      // Execute the high-speed database extraction sequence (Signature preserved)
       const workspaceContextInsight = await this.gatherWorkspaceIntelligence(engineeringQuery);
 
       console.error(`🛡️ [Stage 2] Committing prompt parameters down the forced tool guardrail...`);
@@ -184,7 +85,7 @@ CRITICAL DIRECTIONS:
       `.trim();
 
       // Fire payload down the rigid JSON type contract
-      const structuredResult = await generateStrictDraft(this.anthropicInstance, executionPrompt);
+      const structuredResult = await generateStrictDraft(this.groqInstance, executionPrompt);
 
       // Concatenate the structural parts clearly since Lead stores drafts inside a single string field
       const compiledDraft = `Subject: ${structuredResult.subjectLine}\n\n${structuredResult.emailBody}`;
@@ -219,12 +120,10 @@ CRITICAL DIRECTIONS:
   }
 
   /**
-   * Closes open standard input/output connection handles
+   * Closes open handles cleanly without throwing errors if transport is unmounted
    */
   async cleanup() {
-    if (this.mcp) {
-      await this.mcp.close();
-      console.error("🛑 Subprocess connections unmounted cleanly.");
-    }
+    // Safe evaluation teardown to keep pipeline lifecycle calls operational
+    console.error("🛑 Direct execution tracking handles closed cleanly.");
   }
 }

@@ -45,6 +45,12 @@ graph TD
 
     subgraph Transmission_Gateway [Delivery Services]
         J[Resend Integration] --> K[Target Founder Inbox]
+ 
+    B --- C
+    F --- G
+    I --- H
+    H --- J
+
 ## 🛠️ Design Decisions
 
 * [cite_start]**Local-First Capability Profile Compression** [cite: 1691]
@@ -104,8 +110,3 @@ Follow these steps to set up and run the engine locally.
    git clone [https://github.com/kartikmanwani/agentic-automated-cold-mailer.git](https://github.com/kartikmanwani/agentic-automated-cold-mailer.git)
    cd agentic-automated-cold-mailer/backend
     end
-
-    B --- C
-    F --- G
-    I --- H
-    H --- J

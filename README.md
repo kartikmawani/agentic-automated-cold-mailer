@@ -22,30 +22,25 @@ The Autonomous Agentic Cold Mailer acts as an automated **"Outreach Engine for D
 ## 🏗️ System Architecture
 
 ```mermaid
-graph TD
-    subgraph Data_Source [Persistence Tier]
-        A[(SQLite DB)] --> B[Prisma 7 ORM]
-    end
+ flowchart LR
 
-    subgraph Orchestration_Engine [Logic & Processing Queue]
-        C[Pipeline Runner] --> D[Batch Coordinator]
-        D --> E[p-limit Throttler]
-        E --> F[Enrichment Service]
-    end
+A[Target Company] --> B[Tavily Search]
+B --> C[Groq Extraction]
+C --> D[Hunter.io]
+D --> E[Profile Enrichment]
 
-    subgraph Intelligence_Layer [LLM Guardrail Layer]
-        G[Profile Summarizer] --> H[llmGuarding Engine]
-        H --> I[Groq SDK Client]
-    end
+F[README Analyzer] --> G[Capability Matrix]
 
-    subgraph Transmission_Gateway [Delivery Services]
-        J[Nodemailer Transport] --> K[Target Founder Inbox]
-    end
+E --> H[LLM Guardrails]
+G --> H
 
-    B --- C
-    F --- G
-    I --- H
-    H --- J
+H --> I[JSON Draft]
+I --> J[Nodemailer]
+J --> K[Founder Inbox]
+
+L[(SQLite)]
+L --> M[Prisma]
+M --> E
  ```
 
 ## 🛠️ Design Decisions

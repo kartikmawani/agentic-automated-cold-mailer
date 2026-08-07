@@ -85,12 +85,27 @@ Follow these steps to set up and run the engine locally.
 * Hunter.io API Key (Free at hunter.io)
 * Gmail Account & App Password (Generated via Google Account Security)
 
-### Installation & Setup
+### Setup
 
 * **1. Clone the Repository**
   ```bash
   git clone [https://github.com/kartikmanwani/agentic-automated-cold-mailer.git](https://github.com/kartikmanwani/agentic-automated-cold-mailer.git)
   cd agentic-automated-cold-mailer/backend
+  npm install
+  npm run build
+  npm link
   ```
+## 📦 Installation Guide
+
+Choose the installation method that fits your workflow:
+
+###  Install Globally via NPM (Recommended for Users)
+
+If you simply want to run the tool globally on your system:
+
+```bash
+# Install globally from the official NPM registry
+npm install -g agentic-cold-mailer
+```
 
  

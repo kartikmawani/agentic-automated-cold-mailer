@@ -4,7 +4,8 @@ An autonomous technical analysis and outbound engineering pipeline designed to b
  
 
 ##  Live Demo 
-   <img width="800" height="448" alt="AI_MAILER-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/85a112ab-dbf5-4e71-       b165-56716742eb72" />
+  <img width="800" height="448" alt="AI_MAILER-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/3625363c-615d-4706-ae91-a02302041290" />
+
 
  
 ## The Problem

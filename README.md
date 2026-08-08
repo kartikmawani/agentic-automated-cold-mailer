@@ -3,7 +3,7 @@
 An autonomous technical analysis and outbound engineering pipeline designed to bridge the gap between developer capabilities and active technology startup needs. The system scans targets, extracts deep context, matches technical profiles to scaling blocks, and uses strict LLM tool guardrails to orchestrate highly personalized cold pitches.
  
 
-## 🎬 Live Demo 
+##  Live Demo 
  ![Agentic Cold Mailer Demo]<img width="800" height="448" alt="AI_MAILER-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/85a112ab-dbf5-4e71-b165-56716742eb72" />
 ## The Problem
 Securing core engineering roles or specialized startup projects through traditional outreach is highly inefficient. Developers frequently struggle to:

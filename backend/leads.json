@@ -1,0 +1,14 @@
+[
+    {
+       "companyName": "Pressed-Storage",
+    "founderName": "Alex",
+    "techStack": ["Node.js", "TypeScript", "Redis", "Docker"],
+    "engineeringPainPoint": "Experiencing memory leaks and race conditions inside their distributed WebSocket pub/sub engine under high load."
+    },
+    {
+    "companyName": "EdgeCompute-AI",
+    "founderName": "Sarah",
+    "techStack": ["Next.js", "PostgreSQL", "Prisma"],
+    "engineeringPainPoint": "High cold-start latencies during complex edge-runtime database serialization queries."
+    }
+]

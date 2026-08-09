@@ -67,7 +67,7 @@ app.post('/api/leads', async (req: Request, res: Response) => {
 // ==========================================
 // ASYNCHRONOUS SERVER BOOTSTRAPPER
 // ==========================================
-async function startServer() {
+ export async function startServer() {
   try {
     // 1. Run the terminal-prompt setup wizard or read the cached home directory JSON file instantly
     const config = await initializeConfigWizard();
@@ -91,5 +91,6 @@ async function startServer() {
   }
 }
 
-// Execute the bootstrap runtime thread
-startServer();
+if (process.argv[1] && process.argv[1].includes('app')) {
+  startServer();
+}

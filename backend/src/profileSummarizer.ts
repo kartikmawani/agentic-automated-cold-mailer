@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from "openai";
 
 export interface SummarizeProfileOptions {
   apiKey: string;
@@ -16,8 +16,15 @@ export async function generateDeveloperSummary({
   apiKey,
   rawReadmeContent
 }: SummarizeProfileOptions): Promise<string> {
-  // 1. Initialize the Anthropic Client
-  const anthropic = new Anthropic({ apiKey });
+  if (!apiKey) {
+    throw new Error("Groq API Key is required for profile summarization.");
+  }
+  // 1. Initialize the  Groq Client
+  const groq = new OpenAI({ 
+    apiKey: apiKey,
+    baseURL: "https://api.groq.com/openai/v1" });
+
+    
 
   // 2. The highly targeted extraction system prompt
   const systemPrompt = `
@@ -35,26 +42,19 @@ Keep the final output under 400 words, structured in highly dense markdown list 
 
   try {
     // 3. Fire the request to Claude
-    const response = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-latest', // Uses the latest high-performance Sonnet iteration
-      max_tokens: 1000, 
-      temperature: 0.1, // Low temperature forces high accuracy and drops creative fluff
-      system: systemPrompt,
+    //max_tokens: 1000, 
+    const response = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.1,
       messages: [
-        {
-          role: 'user',
-          content: `Here are my project README files to process:\n\n${rawReadmeContent}`
-        }
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Here are my project README files to process:\n\n${rawReadmeContent}` }
       ]
     });
-
     // 4. Extract and validate the text payload safely
-    const firstContentBlock = response.content[0];
-    if (firstContentBlock && firstContentBlock.type === 'text') {
-      return firstContentBlock.text;
-    }
+    return response.choices[0]?.message?.content || "";
 
-    throw new Error('Unexpected empty or non-text response layout from Anthropic API.');
+    
   } catch (error) {
     console.error('Error in profile summarization service pipeline:', error);
     throw error;

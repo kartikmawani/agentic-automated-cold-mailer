@@ -11,11 +11,16 @@ document.getElementById('ingest-btn').addEventListener('click', async () => {
             const clickedButton = e.currentTarget;
             
             // Traverse up the tree to locate the root card wrapper
-            const cardComponent = clickedButton.closest(".flex");
-            if (!cardComponent) return;
+            let cardComponent = clickedButton.closest('[class*="component"], [class*="styles_result"], [class*="card"], div[class*="border"]');
+            if (!cardComponent) {
+              cardComponent = clickedButton.parentElement?.parentElement?.parentElement || clickedButton.parentElement;
+            }
   
             // Locate the specific nested text element holding the company string
-            const companyComponent = cardComponent.querySelector(".text-neutral-1000");
+            const companyComponent = 
+            cardComponent.querySelector('a[href*="/company/"]') ||
+            cardComponent.querySelector('h2, h3, h4') ||
+            cardComponent.querySelector('.text-neutral-1000');
             const companyName = companyComponent?.textContent?.trim() || "Unknown Target";
   
             console.log(`📡 Transmitting captured element text node: ${companyName}`);

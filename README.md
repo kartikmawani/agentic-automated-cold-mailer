@@ -2,19 +2,15 @@
 
 An autonomous technical analysis and outbound engineering pipeline designed to bridge the gap between developer capabilities and active technology startup needs. The system scans targets, extracts deep context, matches technical profiles to scaling blocks, and uses strict LLM tool guardrails to orchestrate highly personalized cold pitches.
 
-<div align="center">
-  <img src="https://img.shields.io/badge/Pipeline-Autonomous_Agentic-blue?style=for-the-badge" alt="Pipeline Status">
-</div>
+<img width="800" height="448" alt="AI_MAILER-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/378814f9-db4e-4e0a-83f8-12dece24bfa6" />
 
----
-
-## 📌 The Problem
+## The Problem
 Securing core engineering roles or specialized startup projects through traditional outreach is highly inefficient. Developers frequently struggle to:
 * **Identify Active Engineering Pain Points:** Pinpointing the exact infrastructure struggles, technical debt, or framework bottlenecks a startup faces.
 * **Avoid Generic Boilerplate:** Writing generic, copy-paste templates that founder inbox security layers immediately flag as spam.
 * **Scale Contextual Outbound:** Researching team stacks, verifying inboxes, and mapping custom developer profiles takes hours per lead.
 
-## 💡 The Solution
+## The Solution
 The Autonomous Agentic Cold Mailer acts as an automated **"Outreach Engine for Developers."** By routing processing queues through structured LLM validation layers, the system:
 * Performs a **multi-source enrichment scan** of company and founder metadata.
 * Evaluates **inbox validity and data confidence thresholds** to secure sender reputation.
@@ -23,31 +19,91 @@ The Autonomous Agentic Cold Mailer acts as an automated **"Outreach Engine for D
 * Dispatches native, high-deliverability plain-text messages using the **Resend API**.
 
 ---
+##  Built With
+
+###  Frontend & Browser Extension
+![Chrome Extension](https://img.shields.io/badge/Chrome_Extension-Manifest_V3-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)
+![Firefox Addon](https://img.shields.io/badge/Firefox_Addon-Supported-FF7139?style=for-the-badge&logo=firefoxbrowser&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
+
+###  Backend & AI Pipeline
+![Node.js](https://img.shields.io/badge/Node.js-v18+-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
+![Express.js](https://img.shields.io/badge/Express.js-4.x-000000?style=for-the-badge&logo=express&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![Groq AI](https://img.shields.io/badge/Groq_LLM-Llama_3.3-F05A28?style=for-the-badge&logo=groq&logoColor=white)
+![Nodemailer](https://img.shields.io/badge/Nodemailer-Gmail_SMTP-007ACC?style=for-the-badge&logo=nodemailer&logoColor=white)
+
+### Infrastructure, DB & Protocols
+![SQLite](https://img.shields.io/badge/SQLite-Local_DB-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-7.8-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
+![Model Context Protocol](https://img.shields.io/badge/MCP-Protocol-7B1FA2?style=for-the-badge&logo=anthropic&logoColor=white)
+
+## Design Decisions
+
+* **Local-First Capability Profile Compression:** Instead of relying on generic resume bullet points, the system automatically inspects local workspace project `README.md` files. It uses Groq (`llama-3.3-70b-versatile`) to compile a high-density **Developer Capabilities Matrix** outlining core stacks, architectural patterns, and real technical problems solved.
+* **Sequential Multi-Tier Lead Intelligence with Smart Fallbacks:** The enrichment service executes a single-go pipeline:
+  * **Tavily API:** Performs semantic web searches to identify company founders and official domains.
+  * **Groq API (`llama-3.1-8b-instant`):** Extracts founder names and engineering pain points into structured JSON.
+  * **Hunter.io & Pattern Fallback:** Resolves verified email addresses. If Hunter limits are hit or data is throttled, an automated domain sanitizer and pattern matcher (`first_name@domain.com`) kicks in to guarantee 100% queue completion without pipeline halts.
+* **Schema Guardrails & Native JSON Output:** To eliminate AI filler text and hallucinations, the draft generator (`llmGuarding.ts`) uses Groq’s native JSON mode (`response_format: { type: "json_object" }`). This enforces a strict output contract (`SerializedOutreachDraft`) containing subject lines under 4 words, clean markdown body text, and detected technology tokens.
+* **Engineering "Meta-Pitch" Strategy:** To maximize response rates from startup founders and CTOs, outreach emails are written as concise, peer-to-peer engineering demos. They state upfront that the email was dynamically researched and written by an autonomous agent, proving real-world AI engineering capability in the very first sentence.
 
 ## 🏗️ System Architecture
 
 ```mermaid
-graph TD
-    subgraph Data_Source [Persistence Tier]
-        A[(SQLite DB)] --> B[Prisma 7 ORM]
-    end
+flowchart LR
 
-    subgraph Orchestration_Engine [Logic & Processing Queue]
-        C[Pipeline Runner] --> D[Batch Coordinator]
-        D --> E[p-limit Throttler]
-        E --> F[Enrichment Service]
-    end
+A[Target Company] --> B[Tavily Search]
+B --> C[Groq Extraction]
+C --> D[Hunter.io]
+D --> E[Profile Enrichment]
 
-    subgraph Intelligence_Layer [LLM Guardrail Layer]
-        G[Profile Summarizer] --> H[llmGuarding Engine]
-        H --> I[Anthropic SDK Client]
-    end
+F[README Analyzer] --> G[Capability Matrix]
 
-    subgraph Transmission_Gateway [Delivery Services]
-        J[Resend Integration] --> K[Target Founder Inbox]
-    end
+E --> H[LLM Guardrails]
+G --> H
 
-    B --- C
-    F --- G
-    I --- H
-    H --- J
+H --> I[JSON Draft]
+I --> J[Nodemailer]
+J --> K[Founder Inbox]
+
+L[(SQLite)]
+L --> M[Prisma]
+M --> E
+```
+
+---
+
+##Prerequisites
+
+Before installing, ensure your environment meets the following requirements:
+
+* **Node.js**: `v18.0.0` or higher
+* **npm**: `v9.0.0` or higher
+* **Groq / Claude API Key**: For LLM copy generation
+* **Gmail App Password**: A 16-character [Google App Password](https://myaccount.google.com/apppasswords) for secure SMTP dispatch
+
+---
+
+##Installation Guide
+
+Choose the installation method that fits your workflow:
+
+### : Install Globally via NPM (Recommended for Users)
+
+If you simply want to run the tool globally on your system:
+
+```bash
+# Install globally from the official NPM registry
+npm install -g agentic-cold-mailer
+```
+### 💻 Installation & Setup
+
+####  Clone the Repository
+```bash
+git clone [https://github.com/kartikmanwani/agentic-automated-cold-mailer.git](https://github.com/kartikmanwani/agentic-automated-cold-mailer.git)
+cd agentic-automated-cold-mailer/backend
+npm install
+npx prisma db push
+npm run dev
+```

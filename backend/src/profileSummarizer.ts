@@ -44,7 +44,7 @@ Keep the final output under 400 words, structured in highly dense markdown list 
     // 3. Fire the request to Claude
     //max_tokens: 1000, 
     const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-20b",
       temperature: 0.1,
       messages: [
         { role: "system", content: systemPrompt },

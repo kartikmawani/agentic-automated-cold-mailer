@@ -200,7 +200,7 @@ WorkFlow-:This mechanism is responsible of finding mail through company name
                         }
                         }
                           
-                          processSingle lead requires lead object and devProfile  as parameter and returns an Object I guess from there code takes boolean true  or false and then proceed.It changes the state immediately into Processing to stop any state related issue.enrichLeadSingleGO
+                          processSingle lead requires lead object and devProfile  as parameter and returns an Object I guess, from there code takes boolean true  or false and then proceed.It changes the state immediately into Processing to stop any state related issue.enrichLeadSingleGO
                           function takes lead objecta and strangely env variable and returns an object that has everything to generate a mail.processSinglLead
                           checks edge cases such as confindence,hunter score and data availability If those check fails it changes values in database
 
@@ -234,3 +234,4 @@ WorkFlow-:This mechanism is responsible of finding mail through company name
                           Suspicious about  database synchronization.
                           It is said that it will be send to manual review but it has never happend that  I hava seen manual review option.
                           Hardcoded name must be changed.
+                          Why they are using env variable as a parameter can't they just access it in the file where they need it.
